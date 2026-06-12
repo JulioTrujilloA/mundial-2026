@@ -1,0 +1,15 @@
+# Dependencias / build
+node_modules/
+dist/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+
+# Preview local de Claude Code
+.claude/launch.json
