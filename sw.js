@@ -1,4 +1,4 @@
-const CACHE = 'wc2026-v2';
+const CACHE = 'wc2026-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {

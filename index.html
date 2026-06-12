@@ -145,7 +145,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .instr{display:inline-flex;align-items:center;gap:.4rem;background:rgba(0,193,101,.08);border:1px solid rgba(0,193,101,.2);border-radius:4px;padding:.3rem .8rem;font-size:.72rem;color:var(--texto-dim);}
 .bracket-scroll{overflow-x:auto;padding:1rem 1.5rem 2rem;cursor:grab;-webkit-overflow-scrolling:touch;}
 .bracket-scroll:active{cursor:grabbing;}
-.bracket-canvas{display:flex;gap:0;align-items:stretch;min-width:fit-content;position:relative;}
+.bracket-canvas{display:flex;gap:0;align-items:stretch;min-width:fit-content;width:fit-content;margin:0 auto;position:relative;}
 #bracket-lines{position:absolute;top:0;left:0;z-index:0;pointer-events:none;}
 .phase-col{display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:1;}
 .phase-label{font-family:'Bebas Neue',sans-serif;font-size:.82rem;letter-spacing:2px;color:var(--verde);text-align:center;padding:.4rem .3rem;background:var(--gris-oscuro);border:1px solid var(--gris-borde);border-radius:4px 4px 0 0;margin-bottom:.3rem;white-space:nowrap;}
@@ -204,7 +204,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
     <button class="active" onclick="showTab('grupos',this)">Grupos</button>
     <button onclick="showTab('posiciones',this)">Posiciones</button>
     <button onclick="showTab('partidos',this)">Partidos</button>
-    <button onclick="showTab('bracket',this)">Bracket</button>
+    <button onclick="showTab('bracket',this)">Eliminatorias</button>
   </nav>
 </header>
 
@@ -1245,6 +1245,14 @@ window.addEventListener('resize',()=>{
   if(document.getElementById('tab-bracket').classList.contains('active')) drawLines();
 });
 
+// centra la vista del cuadro: deja la Final (columna central) en medio de la pantalla
+function centerBracketScroll(){
+  const scroll=document.getElementById('bracket-scroll');
+  const canvas=document.getElementById('bracket-canvas');
+  if(!scroll||!canvas) return;
+  scroll.scrollLeft=Math.max(0,(canvas.scrollWidth-scroll.clientWidth)/2);
+}
+
 // columna central: final + tercer lugar
 function makeCenterCol(){
   const col=document.createElement('div');
@@ -1291,7 +1299,7 @@ function showTab(id,btn){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
-  if(id==='bracket') requestAnimationFrame(drawLines);
+  if(id==='bracket') requestAnimationFrame(()=>{drawLines();centerBracketScroll();});
   try{localStorage.setItem('wc2026_tab',id);}catch(e){}
 }
 function restoreTab(){
