@@ -37,7 +37,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 
 /* PROGRESS BAR */
 .progress-wrap{display:flex;gap:3px;padding:.5rem 1.5rem;background:var(--gris-oscuro);border-bottom:1px solid var(--gris-borde);align-items:stretch;overflow-x:auto;}
-.phase-seg{flex:1;min-width:70px;text-align:center;padding:4px 6px;border-radius:4px;background:var(--gris-medio);border:1px solid var(--gris-borde);font-size:.58rem;letter-spacing:.5px;text-transform:uppercase;color:var(--texto-dim);position:relative;white-space:nowrap;}
+.phase-seg{flex:1 0 auto;min-width:max-content;text-align:center;padding:4px 10px;border-radius:4px;background:var(--gris-medio);border:1px solid var(--gris-borde);font-size:.58rem;letter-spacing:.5px;text-transform:uppercase;color:var(--texto-dim);position:relative;white-space:nowrap;}
 .phase-seg .ph-dates{display:block;font-size:.55rem;opacity:.7;}
 .phase-seg.done{border-color:rgba(0,193,101,.3);color:var(--verde);opacity:.6;}
 .phase-seg.current{border-color:var(--verde);background:rgba(0,193,101,.12);color:var(--verde);font-weight:700;}
@@ -187,6 +187,18 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .bracket-canvas.condensed .phase-col{margin-right:12px !important;width:auto !important;}
 .bracket-canvas.condensed .team-slot{min-height:26px;padding:3px 5px;}
 
+/* bottom sheet (selección por toque en celular) */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .15s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.sheet{background:var(--gris-card);border:1px solid var(--gris-borde);border-bottom:none;border-radius:14px 14px 0 0;width:100%;max-width:480px;max-height:72vh;overflow-y:auto;padding:10px 10px 18px;display:flex;flex-direction:column;gap:6px;animation:slideUp .2s ease;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.sheet-title{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--verde);font-size:1.05rem;padding:8px;text-align:center;border-bottom:1px solid var(--gris-borde);margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.sheet-btn{display:flex;align-items:center;gap:9px;background:var(--gris-medio);border:1px solid var(--gris-borde);color:var(--texto);font-family:'Inter',sans-serif;font-size:.92rem;font-weight:500;padding:12px 14px;border-radius:9px;cursor:pointer;text-align:left;}
+.sheet-btn:active{background:#2c2c2c;}
+.sheet-btn .ts-flag{font-size:1.25rem;}
+.sheet-btn.danger{color:var(--rojo);border-color:rgba(230,57,70,.4);}
+.sheet-btn.cancel{justify-content:center;color:var(--texto-dim);margin-top:6px;font-weight:600;}
+
 /* drag ghost (touch) */
 .drag-ghost{position:fixed;z-index:999;pointer-events:none;background:var(--gris-card);border:1px solid var(--verde);border-radius:5px;padding:4px 8px;font-size:.72rem;display:flex;align-items:center;gap:5px;opacity:.9;box-shadow:0 4px 14px rgba(0,0,0,.6);transform:translate(-50%,-120%);}
 
@@ -198,6 +210,12 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
   nav button{padding:5px 8px;font-size:.7rem;}
   .stats-bar{grid-template-columns:repeat(2,1fr);}
   .partido-row{grid-template-columns:60px 1fr auto 1fr 60px;font-size:.72rem;}
+  /* compacta la tabla de posiciones para que la columna Pts no se corte */
+  .pos-table{font-size:.72rem;}
+  .pos-table th,.pos-table td{padding:4px 2px;}
+  .pos-table th.left,.pos-table td.team-cell{padding-left:6px;}
+  .pos-table td.team-cell{padding-right:2px;gap:3px;}
+  .pos-table .eq-flag,.pos-table .ts-flag{font-size:1rem;}
 }
 </style>
 </head>
@@ -257,7 +275,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 <!-- TAB BRACKET -->
 <div id="tab-bracket" class="tab">
   <div class="bracket-toolbar">
-    <div class="instr">☝️ Arrastra una selección a su llave. La Ronda de 32 valida grupo y posición; de octavos en adelante decides tú. Clic en un equipo para iluminar su ruta. ✕ para quitar.</div>
+    <div class="instr" id="bracket-instr"></div>
     <button class="btn-save" onclick="simularBracket()">⚡ Simular</button>
     <button class="btn-reset" onclick="toggleCondensed(this)">▣ Modo compacto</button>
     <button class="btn-reset" onclick="resetBracket()">↺ Limpiar bracket</button>
@@ -978,7 +996,68 @@ function toggleRoute(name,startSlotId){
   renderBracket();
 }
 
+// ── modo táctil: en celular se elige por toque en vez de arrastrar ──
+function isTouchMode(){
+  return window.matchMedia('(pointer:coarse)').matches || window.innerWidth<=700;
+}
+// equipos válidos para una casilla concreta (mismos que aceptaría el arrastre)
+function slotCandidates(slotId,pos){
+  if(slotId.startsWith('r32')){
+    const sl=R32.find(s=>s.id===slotId), d=sl[pos+'desc']; let m;
+    if((m=d.match(/Grupo ([A-L])$/))) return GRUPOS.find(g=>g.letra===m[1]).equipos.slice();
+    if(d.startsWith('3°')) return d.replace('3° ','').split('/').flatMap(L=>GRUPOS.find(g=>g.letra===L).equipos);
+    return [];
+  }
+  const sl=ALL_SLOTS.find(s=>s.id===slotId), d=sl[pos+'desc']; let m,feed=null;
+  if((m=d.match(/^W (J\d+)/))) feed=J2SLOT[m[1]];
+  else if(/SF1/.test(d)) feed='sf-1';
+  else if(/SF2/.test(d)) feed='sf-2';
+  if(!feed) return [];
+  const st=bracketState[feed];
+  return [st.t1,st.t2].filter(Boolean).map(t=>t.n);
+}
+// bottom sheet
+function closeSheet(){const s=document.getElementById('sheet');if(s)s.remove();}
+function openSheet(title,items){
+  closeSheet();
+  const ov=document.createElement('div');ov.id='sheet';ov.className='sheet-overlay';
+  ov.addEventListener('click',e=>{if(e.target===ov)closeSheet();});
+  const box=document.createElement('div');box.className='sheet';
+  const h=document.createElement('div');h.className='sheet-title';h.innerHTML=title;box.appendChild(h);
+  items.forEach(it=>{
+    const b=document.createElement('button');
+    b.className='sheet-btn'+(it.danger?' danger':'');
+    b.innerHTML=it.label;
+    b.addEventListener('click',it.onClick);
+    box.appendChild(b);
+  });
+  const c=document.createElement('button');c.className='sheet-btn cancel';c.textContent='Cancelar';c.addEventListener('click',closeSheet);
+  box.appendChild(c);
+  ov.appendChild(box);document.body.appendChild(ov);
+}
+function pickPlace(slotId,pos,name){
+  closeSheet();
+  dragData={team:{n:name,f:flag(name)},fromSlotId:null,fromPos:null};
+  handleDrop(slotId,pos);
+}
+function openPicker(slotId,pos){
+  const cands=slotCandidates(slotId,pos);
+  if(!cands.length){showToast('Primero define las llaves anteriores');return;}
+  openSheet('Elegir equipo',cands.map(n=>({
+    label:`<span class="ts-flag">${flag(n)}</span> ${n}`,
+    onClick:()=>pickPlace(slotId,pos,n)
+  })));
+}
+function openOccupied(slotId,pos,team){
+  openSheet(`<span class="ts-flag">${team.f}</span> ${team.n}`,[
+    {label:'🟡 Ver ruta a la final',onClick:()=>{closeSheet();toggleRoute(team.n,routeStartFor(team.n)||slotId);}},
+    {label:'🔁 Cambiar equipo',onClick:()=>openPicker(slotId,pos)},
+    {label:'✕ Quitar',danger:true,onClick:()=>{closeSheet();bracketState[slotId][pos]=null;delete koScores[slotId];saveBracket();renderBracket();renderPartidos();}},
+  ]);
+}
+
 function makeTeamSlot(slotId,pos,team){
+  const touch=isTouchMode();
   const div=document.createElement('div');
   div.className='team-slot '+(team?'occupied':'empty');
   div.dataset.slotId=slotId;
@@ -987,7 +1066,7 @@ function makeTeamSlot(slotId,pos,team){
   if(team){
     const ks=koScores[slotId];
     const sc=ks&&ks.s1!=null?`<span class="ts-score">${pos==='t1'?ks.s1:ks.s2}</span>`:'';
-    div.draggable=true;
+    div.draggable=!touch;
     div.innerHTML=`<span class="ts-flag">${team.f}</span><span class="ts-name">${team.n}</span>${sc}<span class="ts-remove" title="Quitar">✕</span>`;
     div.querySelector('.ts-remove').addEventListener('click',e=>{
       e.stopPropagation();
@@ -997,20 +1076,25 @@ function makeTeamSlot(slotId,pos,team){
     });
     div.addEventListener('click',e=>{
       if(e.target.classList.contains('ts-remove')) return;
-      toggleRoute(team.n,routeStartFor(team.n)||slotId);
+      if(touch) openOccupied(slotId,pos,team);
+      else toggleRoute(team.n,routeStartFor(team.n)||slotId);
     });
-    div.addEventListener('dragstart',e=>{
-      dragData={team,fromSlotId:slotId,fromPos:pos};
-      div.classList.add('dragging');
-      e.dataTransfer.effectAllowed='move';
-    });
-    div.addEventListener('dragend',()=>div.classList.remove('dragging'));
-    div.addEventListener('touchstart',()=>{
-      dragData={team,fromSlotId:slotId,fromPos:pos};
-    },{passive:true});
+    if(!touch){
+      div.addEventListener('dragstart',e=>{
+        dragData={team,fromSlotId:slotId,fromPos:pos};
+        div.classList.add('dragging');
+        e.dataTransfer.effectAllowed='move';
+      });
+      div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+      div.addEventListener('touchstart',()=>{
+        dragData={team,fromSlotId:slotId,fromPos:pos};
+      },{passive:true});
+    }
   } else {
     div.innerHTML=`<span class="ts-flag" style="opacity:.25">⚽</span><span class="ts-name dim">Por definir</span>`;
+    if(touch) div.addEventListener('click',()=>openPicker(slotId,pos));
   }
+  if(touch) return div; // en celular no hay arrastre: salimos aquí
   div.addEventListener('dragover',e=>{e.preventDefault();div.classList.add('drag-over');});
   div.addEventListener('dragleave',()=>div.classList.remove('drag-over'));
   div.addEventListener('drop',e=>{
@@ -1141,7 +1225,7 @@ function makeGroupsCol(letras){
       const row=document.createElement('div');
       row.className='team-slot occupied';
       row.dataset.grow=String(i+1);
-      row.draggable=true;
+      row.draggable=!isTouchMode();
       if(pathTeam&&pathTeam.name===eq.n) row.style.background='rgba(255,215,0,.15)';
       row.innerHTML=`<span class="gm-pos ${i===0?'p1':i===1?'p2':i===2?'p3':''}">${i+1}</span><span class="ts-flag">${eq.f}</span><span class="ts-name">${eq.n}</span>`;
       row.addEventListener('click',()=>{
@@ -1149,13 +1233,15 @@ function makeGroupsCol(letras){
         if(start) toggleRoute(eq.n,start);
         else if(pathTeam&&pathTeam.name===eq.n) toggleRoute(eq.n,null);
       });
-      row.addEventListener('dragstart',e=>{
-        dragData={team:{n:eq.n,f:eq.f},fromSlotId:null,fromPos:null};
-        e.dataTransfer.effectAllowed='copy';
-      });
-      row.addEventListener('touchstart',()=>{
-        dragData={team:{n:eq.n,f:eq.f},fromSlotId:null,fromPos:null};
-      },{passive:true});
+      if(!isTouchMode()){
+        row.addEventListener('dragstart',e=>{
+          dragData={team:{n:eq.n,f:eq.f},fromSlotId:null,fromPos:null};
+          e.dataTransfer.effectAllowed='copy';
+        });
+        row.addEventListener('touchstart',()=>{
+          dragData={team:{n:eq.n,f:eq.f},fromSlotId:null,fromPos:null};
+        },{passive:true});
+      }
       card.appendChild(row);
     });
     matches.appendChild(card);
@@ -1276,6 +1362,10 @@ function makeCenterCol(){
 
 // doble pirámide: las dos mitades del cuadro avanzan hacia la final al centro
 function renderBracket(){
+  const instr=document.getElementById('bracket-instr');
+  if(instr) instr.innerHTML=isTouchMode()
+    ? '👆 Toca una llave para elegir equipo (solo muestra los válidos). Toca un equipo para ver su ruta o quitarlo. O usa <b>&nbsp;⚡ Simular</b>&nbsp; para llenarlo automático.'
+    : '☝️ Arrastra una selección a su llave. La Ronda de 32 valida grupo y posición; de octavos en adelante decides tú. Clic en un equipo para iluminar su ruta. ✕ para quitar.';
   const canvas=document.getElementById('bracket-canvas');
   canvas.innerHTML='';
   const cols=[
