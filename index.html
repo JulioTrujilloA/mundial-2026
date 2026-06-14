@@ -81,6 +81,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .pm-center{text-align:center;color:var(--texto-dim);font-size:.65rem;}
 .pm-score{font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:var(--texto);}
 .pm-jornada{font-size:.6rem;color:var(--verde);}
+.pm-hora{font-size:.72rem;color:var(--texto);font-weight:600;}
 
 /* ── POSICIONES ── */
 #tab-posiciones{padding:1.5rem;max-width:1400px;margin:0 auto;}
@@ -129,6 +130,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .partido-row{background:var(--gris-card);border:1px solid var(--gris-borde);border-radius:6px;padding:.55rem 1rem;display:grid;grid-template-columns:80px 1fr auto 1fr 80px;align-items:center;gap:.5rem;font-size:.78rem;}
 .partido-row.live{border-color:var(--rojo);}
 .pr-fecha{color:var(--verde);font-size:.68rem;font-weight:600;}
+.pr-hora{font-size:.74rem;font-weight:700;color:var(--texto);}
 .pr-num{font-size:.6rem;color:var(--texto-dim);}
 .pr-team{display:flex;align-items:center;gap:5px;font-weight:500;}
 .pr-team.right{flex-direction:row-reverse;}
@@ -268,6 +270,7 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
     <h2>Partidos</h2>
     <button class="btn-save" id="btn-api-par" onclick="actualizarESPN()">⟳ Actualizar resultados (ESPN)</button>
     <span class="api-status" id="api-status2"></span>
+    <span class="api-status" id="tz-nota" style="margin-left:auto;"></span>
   </div>
   <div id="partidos-container"></div>
 </div>
@@ -432,6 +435,39 @@ const FIXTURES = [
   {id:'g71',fecha:'27 Jun',grupo:'J',j:3,h:'Argelia',a:'Austria',sede:'Kansas City'},
   {id:'g72',fecha:'27 Jun',grupo:'J',j:3,h:'Jordania',a:'Argentina',sede:'Dallas'},
 ];
+
+// hora de saque (UTC) de cada partido de grupos — se muestra en la hora local de quien abre la app
+const FIX_UTC={
+  g1:'2026-06-11T19:00Z',g2:'2026-06-12T02:00Z',g3:'2026-06-12T19:00Z',g4:'2026-06-13T01:00Z',
+  g5:'2026-06-13T19:00Z',g6:'2026-06-13T22:00Z',g7:'2026-06-14T01:00Z',g8:'2026-06-14T04:00Z',
+  g9:'2026-06-14T17:00Z',g10:'2026-06-14T20:00Z',g11:'2026-06-14T23:00Z',g12:'2026-06-15T02:00Z',
+  g13:'2026-06-15T16:00Z',g14:'2026-06-15T19:00Z',g15:'2026-06-15T22:00Z',g16:'2026-06-16T01:00Z',
+  g17:'2026-06-16T19:00Z',g18:'2026-06-16T22:00Z',g19:'2026-06-17T01:00Z',g20:'2026-06-17T04:00Z',
+  g21:'2026-06-17T17:00Z',g22:'2026-06-17T20:00Z',g23:'2026-06-17T23:00Z',g24:'2026-06-18T02:00Z',
+  g25:'2026-06-18T16:00Z',g26:'2026-06-18T19:00Z',g27:'2026-06-18T22:00Z',g28:'2026-06-19T01:00Z',
+  g29:'2026-06-19T19:00Z',g30:'2026-06-19T22:00Z',g31:'2026-06-20T00:30Z',g32:'2026-06-20T03:00Z',
+  g33:'2026-06-20T17:00Z',g34:'2026-06-20T20:00Z',g35:'2026-06-21T00:00Z',g36:'2026-06-21T04:00Z',
+  g37:'2026-06-21T16:00Z',g38:'2026-06-21T19:00Z',g39:'2026-06-21T22:00Z',g40:'2026-06-22T01:00Z',
+  g41:'2026-06-22T17:00Z',g42:'2026-06-22T21:00Z',g43:'2026-06-23T00:00Z',g44:'2026-06-23T03:00Z',
+  g45:'2026-06-23T17:00Z',g46:'2026-06-23T20:00Z',g47:'2026-06-23T23:00Z',g48:'2026-06-24T02:00Z',
+  g49:'2026-06-24T19:00Z',g50:'2026-06-24T19:00Z',g51:'2026-06-24T22:00Z',g52:'2026-06-24T22:00Z',
+  g53:'2026-06-25T01:00Z',g54:'2026-06-25T01:00Z',g55:'2026-06-25T20:00Z',g56:'2026-06-25T20:00Z',
+  g57:'2026-06-25T23:00Z',g58:'2026-06-25T23:00Z',g59:'2026-06-26T02:00Z',g60:'2026-06-26T02:00Z',
+  g61:'2026-06-26T19:00Z',g62:'2026-06-26T19:00Z',g63:'2026-06-27T00:00Z',g64:'2026-06-27T00:00Z',
+  g65:'2026-06-27T03:00Z',g66:'2026-06-27T03:00Z',g67:'2026-06-27T21:00Z',g68:'2026-06-27T21:00Z',
+  g69:'2026-06-27T23:30Z',g70:'2026-06-27T23:30Z',g71:'2026-06-28T02:00Z',g72:'2026-06-28T02:00Z',
+};
+function horaLocal(utc){
+  if(!utc) return '';
+  const d=new Date(utc);
+  return isNaN(d)?'':d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function tzCorta(){
+  try{
+    const p=new Intl.DateTimeFormat([], {timeZoneName:'short'}).formatToParts(new Date());
+    return (p.find(x=>x.type==='timeZoneName')||{}).value||'';
+  }catch(e){return '';}
+}
 
 // ── eliminatorias ──
 const R32 = [
@@ -668,11 +704,12 @@ function renderGrupos(){
         ${ms.map(p=>{
           const s=scores[p.id];
           const played=s&&s.h!=null&&s.a!=null;
+          const hora=horaLocal(FIX_UTC[p.id]);
           const center=played
             ?`<div class="pm-score">${s.h} - ${s.a}</div><div class="pm-jornada">${s.live?'🔴 EN VIVO':'J'+p.j}</div>`
-            :`<div>VS</div><div class="pm-jornada">J${p.j}</div>`;
+            :`<div class="pm-hora">${hora||'VS'}</div><div class="pm-jornada">J${p.j}</div>`;
           return`
-          <div class="partido-mini" title="${p.fecha} · ${p.sede}">
+          <div class="partido-mini" title="${p.fecha}${hora?' · '+hora:''} · ${p.sede}">
             <div class="pm-team">${flag(p.h)} ${p.h}</div>
             <div class="pm-center">${center}</div>
             <div class="pm-team right">${p.a} ${flag(p.a)}</div>
@@ -703,11 +740,12 @@ function renderPartidos(){
   lista.className='partidos-lista';
   FIXTURES.forEach(p=>{
     const s=scores[p.id]||{};
+    const hora=horaLocal(FIX_UTC[p.id]);
     const row=document.createElement('div');
     row.className='partido-row'+(s.live?' live':'');
-    row.title=`${p.fecha} · ${p.sede} · Grupo ${p.grupo} J${p.j}`;
+    row.title=`${p.fecha}${hora?' · '+hora:''} · ${p.sede} · Grupo ${p.grupo} J${p.j}`;
     row.innerHTML=`
-      <div><div class="pr-fecha">${p.fecha}</div><div class="pr-num">J${p.j} G-${p.grupo}</div></div>
+      <div><div class="pr-fecha">${p.fecha}</div>${hora?`<div class="pr-hora">${hora}</div>`:''}<div class="pr-num">J${p.j} G-${p.grupo}</div></div>
       <div class="pr-team">${flag(p.h)} ${p.h}</div>
       <div class="pr-vs">
         ${s.live?'<span class="live-dot"></span>':''}
@@ -721,6 +759,8 @@ function renderPartidos(){
   });
   blk.appendChild(lista);
   c.appendChild(blk);
+  const tznota=document.getElementById('tz-nota');
+  if(tznota) tznota.textContent='🕒 Horarios en tu hora local'+(tzCorta()?' ('+tzCorta()+')':'');
   // eliminatorias (solo lectura, reflejan bracket)
   KO_FASES.forEach(fase=>{
     const b=document.createElement('div');
