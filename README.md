@@ -4,17 +4,18 @@ App web interactiva de la Copa Mundial de la FIFA 2026 (Canadá · México · EE
 
 ## Funciones
 
-- **Grupos** — los 12 grupos con sus 48 selecciones, calendario de partidos y colores por confederación.
-- **Posiciones** — tabla por grupo (PJ, PG, PE, PP, GF, GC, DG, Pts) calculada automáticamente desde los marcadores, con cálculo de los 8 mejores terceros.
-- **Partidos** — los 104 encuentros; escribe los marcadores y todo se actualiza solo.
-- **Bracket** — cuadro de eliminatorias en doble pirámide (de fase de grupos a la final + 3er lugar) con:
-  - Arrastrar y soltar selecciones (validación de grupo/posición en Ronda de 32, sin duplicados por ronda).
+Tres pestañas: **Grupos**, **Partidos** y **Eliminatorias**.
+
+- **Grupos** — cada grupo muestra su tabla de posiciones (PJ, PG, PE, PP, GF, GC, DG, Pts) calculada automáticamente desde los marcadores —con los 8 mejores terceros— y debajo sus partidos con horarios en la hora local de quien abre la app. Colores por confederación.
+- **Partidos** — los 104 encuentros; escribe los marcadores de fase de grupos y la tabla se actualiza sola. Horarios de saque en hora local.
+- **Eliminatorias** — cuadro en doble pirámide (de fase de grupos a la final + 3er lugar) con:
+  - En escritorio: arrastrar y soltar selecciones (validación de grupo/posición en Ronda de 32, sin duplicados por ronda). En celular: selección por toque con candidatos válidos.
   - Líneas conectoras que iluminan la ruta de un equipo hasta la final.
   - Botón **Simular** (proyección por ranking FIFA) y modo compacto.
 - **Resultados reales** — botón que consulta la API pública de ESPN y rellena marcadores y clasificados.
 - **PWA** — instalable en el celular y con soporte offline.
 
-Todo el progreso (marcadores, bracket, pestaña activa) se guarda en el navegador con `localStorage`.
+Todo el progreso (marcadores, bracket, pestaña activa) se guarda en el navegador con `localStorage`. La carpeta es portátil: todas las rutas son relativas, así que puedes moverla o renombrarla sin romper nada (el repositorio Git se mueve con ella).
 
 ## Uso local
 
