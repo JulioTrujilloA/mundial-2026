@@ -39,4 +39,18 @@ Arrastra la carpeta a [Netlify Drop](https://app.netlify.com/drop) o publícala 
 | `sw.js` | Service worker (caché offline) |
 | `icon.svg` | Ícono de la app |
 
+## Restaurar en otra máquina
+
+El proyecto es 100 % estático y autocontenido: todo lo necesario para la app está versionado en Git. Para restaurarlo basta con clonar:
+
+```bash
+git clone https://github.com/JulioTrujilloA/mundial-2026.git
+cd mundial-2026
+# Abre index.html, o sírvelo por HTTP para la PWA (ver "Uso local")
+```
+
+**No hay archivos no versionados que necesites copiar de vuelta para que la app funcione.** No usa `.env`, base de datos local ni uploads. El progreso del usuario (marcadores, bracket, pestaña activa) vive en el `localStorage` de cada navegador, no en la carpeta.
+
+Lo único que queda fuera de Git es la carpeta `.claude/` (config local de Claude Code: preview y permisos). Es opcional y no afecta a la app; si la quieres conservar, hay una copia en `Downloads/respaldo-mundial-2026-<fecha>/`.
+
 > Los datos de grupos, fechas y sedes se basan en información pública del torneo; conviene contrastarlos con el bracket oficial de la FIFA.

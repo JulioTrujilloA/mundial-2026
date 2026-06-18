@@ -11,5 +11,5 @@ desktop.ini
 .vscode/
 .idea/
 
-# Preview local de Claude Code
-.claude/launch.json
+# Config local de Claude Code (preview, permisos, worktrees)
+.claude/
