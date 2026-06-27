@@ -246,7 +246,6 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 <div id="tab-grupos" class="tab active">
   <div class="pos-toolbar">
     <h2>Grupos y Posiciones</h2>
-    <button class="btn-save" id="btn-api-pos" onclick="actualizarESPN()">⟳ Actualizar resultados (ESPN)</button>
     <button class="btn-reset" onclick="resetScores()">↺ Borrar marcadores</button>
     <span class="api-status" id="api-status"></span>
   </div>
@@ -263,7 +262,6 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 <div id="tab-partidos" class="tab">
   <div class="pos-toolbar">
     <h2>Partidos</h2>
-    <button class="btn-save" id="btn-api-par" onclick="actualizarESPN()">⟳ Actualizar resultados (ESPN)</button>
     <span class="api-status" id="api-status2"></span>
     <span class="api-status" id="tz-nota" style="margin-left:auto;"></span>
   </div>
@@ -840,8 +838,6 @@ function setApiStatus(msg,cls){
   });
 }
 async function actualizarESPN(){
-  const btns=[document.getElementById('btn-api-pos'),document.getElementById('btn-api-par')];
-  btns.forEach(b=>b.disabled=true);
   setApiStatus('Consultando ESPN…');
   try{
     const url='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=300';
@@ -915,8 +911,6 @@ async function actualizarESPN(){
     setApiStatus(updated?`✓ ${updated} partido(s) actualizados`:'Sin resultados todavía (el torneo aún no genera datos)', updated?'ok':'');
   }catch(e){
     setApiStatus('✗ No se pudo conectar a ESPN ('+e.message+')','err');
-  }finally{
-    btns.forEach(b=>b.disabled=false);
   }
 }
 
@@ -1517,6 +1511,12 @@ function restoreTab(){
   const btn=[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('onclick').includes(`'${id}'`));
   if(btn) showTab(id,btn);
 }
+// Actualizar automáticamente desde ESPN al cambiar a Grupos o Partidos
+document.addEventListener('DOMContentLoaded',()=>{
+  const navBtns=document.querySelectorAll('nav button');
+  navBtns[0].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Grupos
+  navBtns[1].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Partidos
+});
 
 // scroll drag bracket
 const bs=document.getElementById('bracket-scroll');
