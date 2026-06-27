@@ -740,6 +740,23 @@ const KO_FASES=[
   {titulo:'SEMIFINALES — 2 partidos',slots:SF},
   {titulo:'FINAL',slots:FINAL},
 ];
+
+// Obtener equipo para Ronda de 32 basado en descripción (ej: "1° Grupo A")
+function getTeamForR32Desc(desc){
+  if(!desc) return null;
+  let m;
+  // Formato: "1° Grupo A" o "2° Grupo B"
+  if((m=desc.match(/^([12])° Grupo ([A-L])$/))){
+    const pos=parseInt(m[1]);
+    const letra=m[2];
+    try{
+      const sorted=sortGroup(letra);
+      return sorted[pos-1]||null;
+    }catch(e){return null;}
+  }
+  return null;
+}
+
 function renderPartidos(){
   const c=document.getElementById('partidos-container');
   c.innerHTML='';
@@ -783,8 +800,19 @@ function renderPartidos(){
       const st=bracketState[sl.id];
       const ks=koScores[sl.id];
       const [jn,fecha,sede]=sl.label.split(' · ');
-      const n1=st.t1?`${st.t1.f} ${st.t1.n}`:'— '+sl.t1desc;
-      const n2=st.t2?`${st.t2.n} ${st.t2.f}`:sl.t2desc+' —';
+
+      // Para R32: mostrar combinación posible basada en tabla actual
+      let n1,n2;
+      if(sl.id.startsWith('r32')){
+        const t1=getTeamForR32Desc(sl.t1desc);
+        const t2=getTeamForR32Desc(sl.t2desc);
+        n1=t1?`${t1.f} ${t1.n}`:'— '+sl.t1desc;
+        n2=t2?`${t2.n} ${t2.f}`:sl.t2desc+' —';
+      }else{
+        n1=st.t1?`${st.t1.f} ${st.t1.n}`:'— '+sl.t1desc;
+        n2=st.t2?`${st.t2.n} ${st.t2.f}`:sl.t2desc+' —';
+      }
+
       const center=ks&&ks.s1!=null?`${ks.s1} : ${ks.s2}`:'VS';
       const row=document.createElement('div');
       row.className='partido-row';
