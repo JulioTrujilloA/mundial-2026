@@ -119,6 +119,12 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .badge-c2{background:rgba(91,200,245,.15);color:#5BC8F5;}
 .badge-c3{background:rgba(255,215,0,.15);color:var(--oro);}
 .badge-c3.no{opacity:.35;}
+.badge-tercero-q{background:rgba(0,193,101,.2);color:var(--verde);}
+.badge-no-q{background:rgba(200,200,200,.1);color:var(--texto-dim);font-size:.55rem;padding:1px 4px;border-radius:2px;letter-spacing:.3px;}
+.pos-table tr.califica-tercero{background:rgba(0,193,101,.04);}
+.pos-table tr.no-califica-tercero{background:rgba(200,200,200,.02);opacity:.6;}
+.grupo-cell{font-size:.8rem;color:var(--texto-dim);}
+.terceros-card{margin-top:2rem;}
 .legend{display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;}
 .leg{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--texto-dim);}
 .leg-dot{width:10px;height:10px;border-radius:2px;}
@@ -727,6 +733,40 @@ function renderGrupos(){
       <div class="grupo-partidos">${partidos}</div>`;
     grid.appendChild(card);
   });
+
+  // Sección de TERCEROS LUGARES
+  const thirdsData = bestThirds();
+  const thirdsCard = document.createElement('div');
+  thirdsCard.className = 'grupo-card terceros-card';
+  thirdsCard.style.gridColumn = 'span 2';
+
+  const terceroFilas = thirdsData.ordered.map((eq, i) => {
+    const isQualified = thirdsData.qualified.has(eq.n);
+    const rowClass = isQualified ? 'califica-tercero' : 'no-califica-tercero';
+    const badge = isQualified ? `<span class="badge-clasifica badge-tercero-q">✓ ${i+1}°</span>` : `<span class="badge-no-q">${i+1}°</span>`;
+    const dif = dg(eq);
+    return `<tr class="${rowClass}">
+      <td><span class="pos-num">${i+1}</span></td>
+      <td class="team-cell conf-${eq.conf}">${eq.f} ${eq.n} ${badge}</td>
+      <td class="grupo-cell">Grupo ${eq.grupo}</td>
+      <td>${eq.pj}</td><td>${eq.pg}</td><td>${eq.pe}</td><td>${eq.pp}</td>
+      <td>${eq.gf}</td><td>${eq.gc}</td>
+      <td>${dif>0?'+'+dif:dif}</td>
+      <td class="pts-cell">${pts(eq)}</td></tr>`;
+  }).join('');
+
+  thirdsCard.innerHTML = `
+    <div class="grupo-head">
+      <div class="grupo-letra">TERCEROS LUGARES</div>
+      <div class="grupo-fechas">Los 8 mejores califican</div>
+    </div>
+    <table class="pos-table"><thead><tr>
+      <th class="left" colspan="2">Selección</th>
+      <th>Grupo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th>
+      <th>GF</th><th>GC</th><th>DG</th><th>Pts</th>
+    </tr></thead><tbody>${terceroFilas}</tbody></table>`;
+  grid.appendChild(thirdsCard);
+
   updateStatJugados();
 }
 
@@ -1540,11 +1580,17 @@ function restoreTab(){
   if(btn) showTab(id,btn);
 }
 // Actualizar automáticamente desde ESPN al cambiar a Grupos o Partidos
-document.addEventListener('DOMContentLoaded',()=>{
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const navBtns=document.querySelectorAll('nav button');
+    navBtns[0].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Grupos
+    navBtns[1].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Partidos
+  });
+}else{
   const navBtns=document.querySelectorAll('nav button');
   navBtns[0].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Grupos
   navBtns[1].addEventListener('click',()=>setTimeout(actualizarESPN,100)); // Partidos
-});
+}
 
 // scroll drag bracket
 const bs=document.getElementById('bracket-scroll');
