@@ -738,7 +738,7 @@ function renderGrupos(){
   const thirdsData = bestThirds();
   const thirdsCard = document.createElement('div');
   thirdsCard.className = 'grupo-card terceros-card';
-  thirdsCard.style.gridColumn = 'span 2';
+  thirdsCard.style.gridColumn = '1 / -1';
 
   const terceroFilas = thirdsData.ordered.map((eq, i) => {
     const isQualified = thirdsData.qualified.has(eq.n);
