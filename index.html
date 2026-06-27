@@ -1054,12 +1054,35 @@ function isTouchMode(){
   return window.matchMedia('(pointer:coarse)').matches || window.innerWidth<=700;
 }
 // equipos válidos para una casilla concreta (mismos que aceptaría el arrastre)
+// En R32 solo muestra equipos que realmente pueden jugar juntos según las llaves oficiales
 function slotCandidates(slotId,pos){
   if(slotId.startsWith('r32')){
     const sl=R32.find(s=>s.id===slotId), d=sl[pos+'desc']; let m;
-    if((m=d.match(/Grupo ([A-L])$/))) return GRUPOS.find(g=>g.letra===m[1]).equipos.slice();
-    if(d.startsWith('3°')) return d.replace('3° ','').split('/').flatMap(L=>GRUPOS.find(g=>g.letra===L).equipos);
-    return [];
+    const otherPos=pos==='t1'?'t2':'t1';
+    const otherTeam=bracketState[slotId][otherPos];
+    let candidates=[];
+
+    if((m=d.match(/Grupo ([A-L])$/))) {
+      candidates=GRUPOS.find(g=>g.letra===m[1]).equipos.slice();
+    } else if(d.startsWith('3°')) {
+      const groups=d.replace('3° ','').split('/');
+      candidates=groups.flatMap(L=>GRUPOS.find(g=>g.letra===L).equipos);
+    }
+
+    // Si hay un equipo en la otra posición, filtrar candidatos que sean compatibles
+    if(otherTeam){
+      candidates=candidates.filter(teamName=>{
+        return isValidR32Matchup(
+          pos==='t1'?teamName:otherTeam.n,
+          't1',
+          pos==='t1'?otherTeam.n:teamName,
+          't2',
+          sl
+        );
+      });
+    }
+
+    return candidates;
   }
   const sl=ALL_SLOTS.find(s=>s.id===slotId), d=sl[pos+'desc']; let m,feed=null;
   if((m=d.match(/^W (J\d+)/))) feed=J2SLOT[m[1]];
@@ -1181,19 +1204,56 @@ function rejectSlot(slotId,pos,msg){
   const el=document.querySelector(`.match-card[data-slot-id="${slotId}"] .team-slot[data-pos="${pos}"]`);
   if(el){el.classList.add('reject');setTimeout(()=>el.classList.remove('reject'),500);}
 }
+// Valida si dos equipos pueden jugar juntos en la Ronda de 32 (llaves oficiales FIFA)
+function isValidR32Matchup(team1,team1Pos,team2,team2Pos,slot){
+  if(!team1||!team2) return true; // si falta un equipo, dejar para después
+  const g1=groupOf(team1), g2=groupOf(team2);
+  const d1=slot[team1Pos+'desc'], d2=slot[team2Pos+'desc'];
+
+  // Extraer posición y grupo esperado de cada descripción
+  const m1=d1.match(/^([123])°\s*(Grupo\s+)?([A-L])?(.*)$/), m2=d2.match(/^([123])°\s*(Grupo\s+)?([A-L])?(.*)$/);
+
+  // Validar posición en tabla (1°, 2°, 3°)
+  const pos1=m1?m1[1]:'', pos2=m2?m2[1]:'';
+  const grp1=m1&&m1[3]?m1[3]:'', grp2=m2&&m2[3]?m2[3]:'';
+  const allowed1=m1&&m1[4]?m1[4].split('/').map(s=>s.trim()).filter(s=>s):'';
+  const allowed2=m2&&m2[4]?m2[4].split('/').map(s=>s.trim()).filter(s=>s):'';
+
+  // Regla: dos 1° del mismo grupo NO pueden jugar juntos
+  if(pos1==='1'&&pos2==='1'&&g1===g2) return false;
+  // Regla: dos 2° del mismo grupo NO pueden jugar juntos
+  if(pos1==='2'&&pos2==='2'&&g1===g2) return false;
+  // Regla: un 1° y un 2° del MISMO grupo NO pueden jugar juntos (siempre son de grupos diferentes)
+  if((pos1==='1'&&pos2==='2'||pos1==='2'&&pos2==='1')&&g1===g2) return false;
+
+  return true;
+}
+
 // en R32 cada casilla solo acepta equipos del grupo que indica su descripción
 function slotRuleError(name,slotId,pos){
   if(PHASE_OF(slotId)!=='r32') return null;
   const sl=R32.find(s=>s.id===slotId);
   const d=sl[pos+'desc'];
   const g=groupOf(name);
+  const otherPos=pos==='t1'?'t2':'t1';
+  const otherTeam=bracketState[slotId][otherPos];
   let m;
+
+  // Validar que el equipo cumpla su descripción individual
   if((m=d.match(/^([12])° Grupo ([A-L])$/))){
     if(g!==m[2]) return `⚠ Esa casilla es para el ${m[1]}° del Grupo ${m[2]} (${name} es del Grupo ${g})`;
   }else if(d.startsWith('3°')){
     const allowed=d.replace('3° ','').split('/');
     if(!allowed.includes(g)) return `⚠ Esa casilla acepta terceros de los grupos ${allowed.join(', ')} (${name} es del Grupo ${g})`;
   }
+
+  // Validar compatibilidad con el otro equipo del matchup
+  if(otherTeam&&!isValidR32Matchup(pos==='t1'?name:otherTeam.n, pos, pos==='t1'?otherTeam.n:name, otherPos, sl)){
+    const other=otherTeam.n;
+    const otherDesc=sl[otherPos+'desc'];
+    return `⚠ ${name} (${d}) no puede jugar contra ${other} (${otherDesc}) en esta llave`;
+  }
+
   return null;
 }
 // un equipo no puede aparecer dos veces en la misma ronda
