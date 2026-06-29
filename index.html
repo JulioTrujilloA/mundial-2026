@@ -141,9 +141,9 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .pr-num{font-size:.6rem;color:var(--texto-dim);}
 .pr-team{display:flex;align-items:center;gap:5px;font-weight:500;}
 .pr-team.right{flex-direction:row-reverse;}
-.pr-vs{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--texto-dim);text-align:center;display:flex;align-items:center;gap:4px;}
+.pr-vs{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--texto);font-weight:700;text-align:center;display:flex;align-items:center;gap:4px;}
 .pr-sede{font-size:.62rem;color:var(--texto-dim);text-align:right;}
-.score-input{background:#1A1A1A;border:1px solid var(--gris-borde);color:var(--texto);font-family:'Bebas Neue',sans-serif;font-size:1rem;width:34px;height:30px;text-align:center;border-radius:4px;}
+.score-input{background:transparent;border:1px solid var(--gris-borde);color:var(--texto);font-family:'Bebas Neue',sans-serif;font-size:1.4rem;font-weight:700;width:38px;height:34px;text-align:center;border-radius:4px;}
 .score-input:focus{outline:none;border-color:var(--verde);color:var(--verde);}
 .score-input::-webkit-inner-spin-button{-webkit-appearance:none;}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--rojo);animation:blink 1s infinite;}
@@ -225,6 +225,11 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
   .pos-table th.left,.pos-table td.team-cell{padding-left:6px;}
   .pos-table td.team-cell{padding-right:2px;gap:3px;}
   .pos-table .eq-flag,.pos-table .ts-flag{font-size:1rem;}
+  /* tabla de terceros en móvil: ajustes simples */
+  .terceros-card .pos-table{font-size:.68rem;}
+  .terceros-card .pos-table th,.terceros-card .pos-table td{padding:3px 2px;}
+  .terceros-card .pos-table th.left,.terceros-card .pos-table td.team-cell{width:85px;padding:3px 4px;}
+  .terceros-card .pos-table th:nth-child(3),.terceros-card .pos-table td.grupo-cell{width:50px;}
 }
 </style>
 </head>
@@ -455,6 +460,18 @@ const FIX_UTC={
   g61:'2026-06-26T19:00Z',g62:'2026-06-26T19:00Z',g63:'2026-06-27T00:00Z',g64:'2026-06-27T00:00Z',
   g65:'2026-06-27T03:00Z',g66:'2026-06-27T03:00Z',g67:'2026-06-27T21:00Z',g68:'2026-06-27T21:00Z',
   g69:'2026-06-27T23:30Z',g70:'2026-06-27T23:30Z',g71:'2026-06-28T02:00Z',g72:'2026-06-28T02:00Z',
+};
+// Horarios oficiales FIFA de eliminatorias (en UTC). Hora local + huso por sede.
+const SLOT_UTC={
+  'r32-1':'2026-06-28T19:00Z','r32-2':'2026-06-29T20:30Z','r32-3':'2026-06-30T01:00Z','r32-4':'2026-06-29T17:00Z',
+  'r32-5':'2026-06-30T21:00Z','r32-6':'2026-06-30T17:00Z','r32-7':'2026-07-01T01:00Z','r32-8':'2026-07-01T16:00Z',
+  'r32-9':'2026-07-02T00:00Z','r32-10':'2026-07-01T20:00Z','r32-11':'2026-07-02T23:00Z','r32-12':'2026-07-02T19:00Z',
+  'r32-13':'2026-07-03T03:00Z','r32-14':'2026-07-03T22:00Z','r32-15':'2026-07-04T01:30Z','r32-16':'2026-07-03T18:00Z',
+  'oct-1':'2026-07-04T21:00Z','oct-2':'2026-07-04T17:00Z','oct-3':'2026-07-05T20:00Z','oct-4':'2026-07-06T00:00Z',
+  'oct-5':'2026-07-06T19:00Z','oct-6':'2026-07-07T00:00Z','oct-7':'2026-07-07T16:00Z','oct-8':'2026-07-07T20:00Z',
+  'qf-1':'2026-07-09T20:00Z','qf-2':'2026-07-10T19:00Z','qf-3':'2026-07-11T21:00Z','qf-4':'2026-07-12T01:00Z',
+  'sf-1':'2026-07-14T19:00Z','sf-2':'2026-07-15T19:00Z',
+  'third':'2026-07-18T21:00Z','final':'2026-07-19T19:00Z',
 };
 function horaLocal(utc){
   if(!utc) return '';
@@ -794,16 +811,33 @@ function getTeamForR32Desc(desc){
       return sorted[pos-1]||null;
     }catch(e){return null;}
   }
+  // Formato: "3° A/B/C/D/F" — devolver el mejor tercero del grupo permitido
+  if(desc.startsWith('3°')){
+    const allowed=desc.replace('3° ','').split('/');
+    const thirdData=bestThirds().ordered;
+    for(const t of thirdData){
+      if(allowed.includes(t.grupo)) return t;
+    }
+  }
   return null;
+}
+
+// Descripción legible del rival pendiente (ej: "W J76" → "Ganador de J76")
+function descLegible(desc){
+  if(!desc) return desc;
+  let m;
+  if((m=desc.match(/^W (J\d+)$/))) return 'Ganador de '+m[1];
+  if((m=desc.match(/^Perdedor SF(\d+)$/))) return 'Perdedor de Semifinal '+m[1];
+  return desc;
 }
 
 function renderPartidos(){
   const c=document.getElementById('partidos-container');
   c.innerHTML='';
-  // fase de grupos: marcadores editables
+  // fase de grupos: marcadores fijos (solo lectura)
   const blk=document.createElement('div');
   blk.className='fase-bloque';
-  blk.innerHTML=`<div class="fase-titulo">FASE DE GRUPOS — 72 partidos · escribe los marcadores y la tabla se actualiza sola</div>`;
+  blk.innerHTML=`<div class="fase-titulo">FASE DE GRUPOS — 72 partidos</div>`;
   const lista=document.createElement('div');
   lista.className='partidos-lista';
   FIXTURES.forEach(p=>{
@@ -812,15 +846,11 @@ function renderPartidos(){
     const row=document.createElement('div');
     row.className='partido-row'+(s.live?' live':'');
     row.title=`${p.fecha}${hora?' · '+hora:''} · ${p.sede} · Grupo ${p.grupo} J${p.j}`;
+    const center=s.h!=null&&s.a!=null?`${s.live?'<span class="live-dot"></span>':''}${s.h} : ${s.a}`:(hora||'VS');
     row.innerHTML=`
       <div><div class="pr-fecha">${p.fecha}</div>${hora?`<div class="pr-hora">${hora}</div>`:''}<div class="pr-num">J${p.j} G-${p.grupo}</div></div>
       <div class="pr-team">${flag(p.h)} ${p.h}</div>
-      <div class="pr-vs">
-        ${s.live?'<span class="live-dot"></span>':''}
-        <input class="score-input" type="number" min="0" max="20" value="${s.h??''}" onchange="setScore('${p.id}','h',this.value)">
-        <span>:</span>
-        <input class="score-input" type="number" min="0" max="20" value="${s.a??''}" onchange="setScore('${p.id}','a',this.value)">
-      </div>
+      <div class="pr-vs">${center}</div>
       <div class="pr-team right">${p.a} ${flag(p.a)}</div>
       <div class="pr-sede">${p.sede}</div>`;
     lista.appendChild(row);
@@ -829,8 +859,45 @@ function renderPartidos(){
   c.appendChild(blk);
   const tznota=document.getElementById('tz-nota');
   if(tznota) tznota.textContent='🕒 Horarios en tu hora local'+(tzCorta()?' ('+tzCorta()+')':'');
-  // eliminatorias (solo lectura, reflejan bracket)
-  KO_FASES.forEach(fase=>{
+
+  // RONDA DE 32 (con marcadores editables)
+  const r32b=document.createElement('div');
+  r32b.className='fase-bloque';
+  r32b.innerHTML=`<div class="fase-titulo">RONDA DE 32 — 16 partidos · edita marcadores</div>`;
+  const r32l=document.createElement('div');
+  r32l.className='partidos-lista';
+  R32.forEach(sl=>{
+    const st=bracketState[sl.id];
+    const ks=koScores[sl.id];
+    const [jn,fecha,sede]=sl.label.split(' · ');
+    const hora=horaLocal(SLOT_UTC[sl.id]);
+    const isLive=ks&&ks.s1!=null&&!ks.final;
+
+    // Mostrar equipos reales de la tabla actual o del bracket si están seleccionados
+    const t1=st.t1||getTeamForR32Desc(sl.t1desc);
+    const t2=st.t2||getTeamForR32Desc(sl.t2desc);
+    const n1=t1?`${t1.f} ${t1.n}`:'—';
+    const n2=t2?`${t2.n} ${t2.f}`:'—';
+    const row=document.createElement('div');
+    row.className='partido-row'+(ks&&ks.final?'':isLive?' live':'');
+    row.title=sl.label;
+    const dot=isLive?'<span class="live-dot"></span>':'';
+    const scoreHtml=ks&&ks.s1!=null
+      ?`${dot}<input class="score-input" type="number" min="0" max="20" value="${ks.s1}" disabled><span>:</span><input class="score-input" type="number" min="0" max="20" value="${ks.s2}" disabled>`
+      :`<input class="score-input" type="number" min="0" max="20" value="" placeholder="0" onchange="setKOScore('${sl.id}','s1',this.value)"><span>:</span><input class="score-input" type="number" min="0" max="20" value="" placeholder="0" onchange="setKOScore('${sl.id}','s2',this.value)">`;
+    row.innerHTML=`
+      <div><div class="pr-fecha">${fecha}</div>${hora?`<div class="pr-hora">${hora}</div>`:''}<div class="pr-num">${jn}</div></div>
+      <div class="pr-team">${n1}</div>
+      <div class="pr-vs">${scoreHtml}</div>
+      <div class="pr-team right">${n2}</div>
+      <div class="pr-sede">${sede||''}</div>`;
+    r32l.appendChild(row);
+  });
+  r32b.appendChild(r32l);
+  c.appendChild(r32b);
+
+  // Demás eliminatorias (solo lectura, reflejan bracket)
+  KO_FASES.slice(1).forEach(fase=>{
     const b=document.createElement('div');
     b.className='fase-bloque';
     b.innerHTML=`<div class="fase-titulo">${fase.titulo}</div>`;
@@ -840,25 +907,15 @@ function renderPartidos(){
       const st=bracketState[sl.id];
       const ks=koScores[sl.id];
       const [jn,fecha,sede]=sl.label.split(' · ');
-
-      // Para R32: mostrar combinación posible basada en tabla actual
-      let n1,n2;
-      if(sl.id.startsWith('r32')){
-        const t1=getTeamForR32Desc(sl.t1desc);
-        const t2=getTeamForR32Desc(sl.t2desc);
-        n1=t1?`${t1.f} ${t1.n}`:'— '+sl.t1desc;
-        n2=t2?`${t2.n} ${t2.f}`:sl.t2desc+' —';
-      }else{
-        n1=st.t1?`${st.t1.f} ${st.t1.n}`:'— '+sl.t1desc;
-        n2=st.t2?`${st.t2.n} ${st.t2.f}`:sl.t2desc+' —';
-      }
-
+      const hora=horaLocal(SLOT_UTC[sl.id]);
+      const n1=st.t1?`${st.t1.f} ${st.t1.n}`:'— '+descLegible(sl.t1desc);
+      const n2=st.t2?`${st.t2.n} ${st.t2.f}`:descLegible(sl.t2desc)+' —';
       const center=ks&&ks.s1!=null?`${ks.s1} : ${ks.s2}`:'VS';
       const row=document.createElement('div');
       row.className='partido-row';
       row.title=sl.label;
       row.innerHTML=`
-        <div><div class="pr-fecha">${fecha}</div><div class="pr-num">${jn}</div></div>
+        <div><div class="pr-fecha">${fecha}</div>${hora?`<div class="pr-hora">${hora}</div>`:''}<div class="pr-num">${jn}</div></div>
         <div class="pr-team">${n1}</div>
         <div class="pr-vs">${center}</div>
         <div class="pr-team right">${n2}</div>
@@ -871,11 +928,12 @@ function renderPartidos(){
   // 3er lugar (informativo)
   const tp=document.createElement('div');
   tp.className='fase-bloque';
+  const hora3=horaLocal(SLOT_UTC['third']);
   tp.innerHTML=`<div class="fase-titulo">3er LUGAR — 18 Jul · Miami (J103)</div>
     <div class="partidos-lista"><div class="partido-row">
-    <div><div class="pr-fecha">18 Jul</div><div class="pr-num">J103</div></div>
-    <div class="pr-team">🥉 Perdedor SF1</div><div class="pr-vs">VS</div>
-    <div class="pr-team right">Perdedor SF2 🥉</div><div class="pr-sede">Miami</div></div></div>`;
+    <div><div class="pr-fecha">18 Jul</div>${hora3?`<div class="pr-hora">${hora3}</div>`:''}<div class="pr-num">J103</div></div>
+    <div class="pr-team">🥉 Perdedor de Semifinal 1</div><div class="pr-vs">VS</div>
+    <div class="pr-team right">Perdedor de Semifinal 2 🥉</div><div class="pr-sede">Miami</div></div></div>`;
   c.appendChild(tp);
 }
 
@@ -887,6 +945,13 @@ function setScore(id,side,val){
   renderGrupos();
   renderPosiciones();
   renderBracket();
+}
+
+function setKOScore(id,side,val){
+  if(!koScores[id]) koScores[id]={s1:null,s2:null,final:false};
+  koScores[id][side]=val===''?null:Math.max(0,parseInt(val)||0);
+  saveBracket();
+  renderPartidos();
 }
 
 // ══════════════════════════════════════════════
