@@ -123,8 +123,12 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .badge-no-q{background:rgba(200,200,200,.1);color:var(--texto-dim);font-size:.55rem;padding:1px 4px;border-radius:2px;letter-spacing:.3px;}
 .pos-table tr.califica-tercero{background:rgba(0,193,101,.04);}
 .pos-table tr.no-califica-tercero{background:rgba(200,200,200,.02);opacity:.6;}
-.grupo-cell{font-size:.8rem;color:var(--texto-dim);}
+.grupo-cell{color:var(--texto-dim);white-space:nowrap;}
 .terceros-card{margin-top:2rem;}
+.terceros-card .pos-table{max-width:820px;}
+.terceros-card .pos-table th.pos-col{width:34px;}
+.terceros-card .pos-table th.left,.terceros-card .pos-table td.team-cell{width:150px;}
+.terceros-card .pos-table th.grupo-col,.terceros-card .pos-table td.grupo-cell{width:52px;}
 .legend{display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;}
 .leg{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--texto-dim);}
 .leg-dot{width:10px;height:10px;border-radius:2px;}
@@ -228,8 +232,8 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
   /* tabla de terceros en móvil: ajustes simples */
   .terceros-card .pos-table{font-size:.68rem;}
   .terceros-card .pos-table th,.terceros-card .pos-table td{padding:3px 2px;}
-  .terceros-card .pos-table th.left,.terceros-card .pos-table td.team-cell{width:85px;padding:3px 4px;}
-  .terceros-card .pos-table th:nth-child(3),.terceros-card .pos-table td.grupo-cell{width:50px;}
+  .terceros-card .pos-table th.left,.terceros-card .pos-table td.team-cell{width:110px;padding:3px 4px;}
+  .terceros-card .pos-table th.grupo-col,.terceros-card .pos-table td.grupo-cell{width:26px;}
 }
 </style>
 </head>
@@ -760,12 +764,11 @@ function renderGrupos(){
   const terceroFilas = thirdsData.ordered.map((eq, i) => {
     const isQualified = thirdsData.qualified.has(eq.n);
     const rowClass = isQualified ? 'califica-tercero' : 'no-califica-tercero';
-    const badge = isQualified ? `<span class="badge-clasifica badge-tercero-q">✓ ${i+1}°</span>` : `<span class="badge-no-q">${i+1}°</span>`;
     const dif = dg(eq);
     return `<tr class="${rowClass}">
       <td><span class="pos-num">${i+1}</span></td>
-      <td class="team-cell conf-${eq.conf}">${eq.f} ${eq.n} ${badge}</td>
-      <td class="grupo-cell">Grupo ${eq.grupo}</td>
+      <td class="team-cell conf-${eq.conf}">${eq.f} ${eq.n}</td>
+      <td class="grupo-cell">${eq.grupo}</td>
       <td>${eq.pj}</td><td>${eq.pg}</td><td>${eq.pe}</td><td>${eq.pp}</td>
       <td>${eq.gf}</td><td>${eq.gc}</td>
       <td>${dif>0?'+'+dif:dif}</td>
@@ -778,8 +781,8 @@ function renderGrupos(){
       <div class="grupo-fechas">Los 8 mejores califican</div>
     </div>
     <table class="pos-table"><thead><tr>
-      <th class="left" colspan="2">Selección</th>
-      <th>Grupo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th>
+      <th class="pos-col"></th><th class="left">Selección</th>
+      <th class="grupo-col">Grupo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th>
       <th>GF</th><th>GC</th><th>DG</th><th>Pts</th>
     </tr></thead><tbody>${terceroFilas}</tbody></table>`;
   grid.appendChild(thirdsCard);
