@@ -157,6 +157,8 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 #tab-bracket{padding:.8rem 0 2rem;}
 .bracket-toolbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:0 1.5rem .8rem;}
 .instr{display:inline-flex;align-items:center;gap:.4rem;background:rgba(0,193,101,.08);border:1px solid rgba(0,193,101,.2);border-radius:4px;padding:.3rem .8rem;font-size:.72rem;color:var(--texto-dim);}
+#sim-banner{flex-basis:100%;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.35);border-radius:4px;padding:.4rem .8rem;font-size:.74rem;color:#FFD27D;}
+#sim-banner b{color:#FFE0A3;}
 .bracket-scroll{overflow-x:auto;padding:1rem 1.5rem 2rem;cursor:grab;-webkit-overflow-scrolling:touch;}
 .bracket-scroll:active{cursor:grabbing;}
 .bracket-canvas{display:flex;gap:0;align-items:stretch;min-width:fit-content;width:fit-content;margin:0 auto;position:relative;}
@@ -222,7 +224,10 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
   nav{width:100%;justify-content:center;flex-wrap:wrap;}
   nav button{padding:5px 8px;font-size:.7rem;}
   .stats-bar{grid-template-columns:repeat(2,1fr);}
-  .partido-row{grid-template-columns:60px 1fr auto 1fr 60px;font-size:.72rem;}
+  .partido-row{grid-template-columns:56px 1fr auto 1fr 56px;font-size:.72rem;gap:.35rem;}
+  /* inputs de marcador más compactos en móvil para que la fila de Ronda de 32 no se desborde */
+  .score-input{width:27px;height:30px;font-size:1.15rem;}
+  .pr-vs{font-size:1.15rem;gap:3px;}
   /* compacta la tabla de posiciones para que la columna Pts no se corte */
   .pos-table{font-size:.72rem;}
   .pos-table th,.pos-table td{padding:4px 2px;}
@@ -289,7 +294,8 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
     <div class="instr" id="bracket-instr"></div>
     <button class="btn-save" onclick="simularBracket()">⚡ Simular</button>
     <button class="btn-reset" onclick="toggleCondensed(this)">▣ Modo compacto</button>
-    <button class="btn-reset" onclick="resetBracket()">↺ Limpiar bracket</button>
+    <button class="btn-reset" id="btn-reset-bracket" onclick="resetBracket()">↺ Limpiar bracket</button>
+    <div id="sim-banner" style="display:none;"></div>
   </div>
   <div class="bracket-scroll" id="bracket-scroll">
     <div class="bracket-canvas" id="bracket-canvas"></div>
@@ -586,6 +592,21 @@ ALL_SLOTS.forEach(sl=>{if(!bracketState[sl.id])bracketState[sl.id]={t1:null,t2:n
 function saveScores(){try{localStorage.setItem(SK_SCORES,JSON.stringify(scores));}catch(e){}}
 function saveBracket(){try{localStorage.setItem(SK_BRACKET,JSON.stringify(bracketState));localStorage.setItem(SK_KO,JSON.stringify(koScores));}catch(e){}}
 
+// ── SIMULACIÓN AISLADA ──
+// La simulación vive en su propio estado (simBracket) y NO toca lo oficial
+// (bracketState/koScores), por lo que nunca afecta a Grupos ni Partidos.
+let simBracket=null;                 // null = sin simulación; objeto = sandbox de proyección
+function inSim(){return !!simBracket;}
+function cb(){return simBracket||bracketState;}   // bracket activo en la pestaña Eliminatorias
+function cko(){return inSim()?{}:koScores;}        // en simulación no hay marcadores guardados
+// tras editar el bracket en la pestaña Eliminatorias:
+// en simulación solo redibuja (no persiste ni toca Partidos); en oficial sí persiste y refleja
+function afterBracketEdit(){
+  if(inSim()){renderBracket();}
+  else{saveBracket();renderBracket();renderPartidos();}
+}
+function exitSim(){simBracket=null;renderBracket();}
+
 // ══════════════════════════════════════════════
 // PROGRESO DEL TORNEO
 // ══════════════════════════════════════════════
@@ -866,7 +887,7 @@ function renderPartidos(){
   // RONDA DE 32 (con marcadores editables)
   const r32b=document.createElement('div');
   r32b.className='fase-bloque';
-  r32b.innerHTML=`<div class="fase-titulo">RONDA DE 32 — 16 partidos · edita marcadores</div>`;
+  r32b.innerHTML=`<div class="fase-titulo">RONDA DE 32 — 16 partidos</div>`;
   const r32l=document.createElement('div');
   r32l.className='partidos-lista';
   R32.forEach(sl=>{
@@ -1054,8 +1075,10 @@ async function actualizarESPN(){
 // SIMULADOR — por ranking FIFA
 // ══════════════════════════════════════════════
 function simularBracket(){
-  const hayAlgo=ALL_SLOTS.some(s=>bracketState[s.id].t1||bracketState[s.id].t2);
-  if(hayAlgo&&!confirm('Esto sobreescribirá el bracket actual con una proyección por ranking FIFA (usa los resultados reales que ya tengas). ¿Continuar?')) return;
+  // La proyección se construye en un estado AISLADO (simBracket); no toca lo oficial,
+  // así nunca afecta a Grupos ni Partidos.
+  const sim={};
+  ALL_SLOTS.forEach(sl=>{sim[sl.id]={t1:null,t2:null};});
   // 1°,2°,3° de cada grupo según tabla actual (sin partidos = decide el ranking)
   const firsts={},seconds={};
   let thirds=[];
@@ -1090,21 +1113,20 @@ function simularBracket(){
       if((m=d.match(/^1° Grupo ([A-L])$/))) team=firsts[m[1]];
       else if((m=d.match(/^2° Grupo ([A-L])$/))) team=seconds[m[1]];
       else if(d.startsWith('3°')) team=thirdMap[sl.id];
-      bracketState[sl.id][pos]=team?{n:team.n,f:team.f}:null;
+      sim[sl.id][pos]=team?{n:team.n,f:team.f}:null;
     });
   });
   // avanzar por ranking (mejor rank gana)
   [...R32,...OCT,...QF,...SF].forEach(sl=>{
-    const st=bracketState[sl.id];
+    const st=sim[sl.id];
     if(!st.t1||!st.t2||!NEXT[sl.id]) return;
     const w=T(st.t1.n).rank<=T(st.t2.n).rank?st.t1:st.t2;
     const nx=NEXT[sl.id];
-    bracketState[nx.slot][nx.pos]={...w};
+    sim[nx.slot][nx.pos]={...w};
   });
-  koScores={};
-  saveBracket();
-  renderAll();
-  const f=bracketState['final'];
+  simBracket=sim;            // activa el modo simulación (sin persistir, sin tocar lo oficial)
+  renderBracket();
+  const f=sim['final'];
   if(f.t1&&f.t2){
     const champ=T(f.t1.n).rank<=T(f.t2.n).rank?f.t1:f.t2;
     setTimeout(()=>alert('🏆 Campeón proyectado por ranking FIFA: '+champ.f+' '+champ.n),100);
@@ -1113,6 +1135,7 @@ function simularBracket(){
 }
 
 function resetBracket(){
+  if(inSim()){exitSim();return;}   // si hay simulación activa, solo salimos de ella (no toca lo oficial)
   if(!confirm('¿Limpiar todo el bracket?')) return;
   ALL_SLOTS.forEach(sl=>{bracketState[sl.id]={t1:null,t2:null};});
   koScores={};
@@ -1161,7 +1184,7 @@ function groupOf(name){
 // ruta de un equipo: si ya está en el bracket usa esa llave; si no, la que le toca por su posición actual en el grupo
 function routeStartFor(name){
   const inBracket=ALL_SLOTS.find(s=>{
-    const st=bracketState[s.id];
+    const st=cb()[s.id];
     return (st.t1&&st.t1.n===name)||(st.t2&&st.t2.n===name);
   });
   if(inBracket) return inBracket.id;
@@ -1189,7 +1212,7 @@ function slotCandidates(slotId,pos){
   if(slotId.startsWith('r32')){
     const sl=R32.find(s=>s.id===slotId), d=sl[pos+'desc']; let m;
     const otherPos=pos==='t1'?'t2':'t1';
-    const otherTeam=bracketState[slotId][otherPos];
+    const otherTeam=cb()[slotId][otherPos];
     let candidates=[];
 
     if((m=d.match(/Grupo ([A-L])$/))) {
@@ -1219,7 +1242,7 @@ function slotCandidates(slotId,pos){
   else if(/SF1/.test(d)) feed='sf-1';
   else if(/SF2/.test(d)) feed='sf-2';
   if(!feed) return [];
-  const st=bracketState[feed];
+  const st=cb()[feed];
   return [st.t1,st.t2].filter(Boolean).map(t=>t.n);
 }
 // bottom sheet
@@ -1258,7 +1281,7 @@ function openOccupied(slotId,pos,team){
   openSheet(`<span class="ts-flag">${team.f}</span> ${team.n}`,[
     {label:'🟡 Ver ruta a la final',onClick:()=>{closeSheet();toggleRoute(team.n,routeStartFor(team.n)||slotId);}},
     {label:'🔁 Cambiar equipo',onClick:()=>openPicker(slotId,pos)},
-    {label:'✕ Quitar',danger:true,onClick:()=>{closeSheet();bracketState[slotId][pos]=null;delete koScores[slotId];saveBracket();renderBracket();renderPartidos();}},
+    {label:'✕ Quitar',danger:true,onClick:()=>{closeSheet();cb()[slotId][pos]=null;if(!inSim())delete koScores[slotId];afterBracketEdit();}},
   ]);
 }
 
@@ -1270,15 +1293,15 @@ function makeTeamSlot(slotId,pos,team){
   div.dataset.pos=pos;
   if(lastPlaced&&lastPlaced.slot===slotId&&lastPlaced.pos===pos) div.classList.add('placed');
   if(team){
-    const ks=koScores[slotId];
+    const ks=cko()[slotId];
     const sc=ks&&ks.s1!=null?`<span class="ts-score">${pos==='t1'?ks.s1:ks.s2}</span>`:'';
     div.draggable=!touch;
     div.innerHTML=`<span class="ts-flag">${team.f}</span><span class="ts-name">${team.n}</span>${sc}<span class="ts-remove" title="Quitar">✕</span>`;
     div.querySelector('.ts-remove').addEventListener('click',e=>{
       e.stopPropagation();
-      bracketState[slotId][pos]=null;
-      delete koScores[slotId];
-      saveBracket(); renderBracket(); renderPartidos();
+      cb()[slotId][pos]=null;
+      if(!inSim())delete koScores[slotId];
+      afterBracketEdit();
     });
     div.addEventListener('click',e=>{
       if(e.target.classList.contains('ts-remove')) return;
@@ -1366,7 +1389,7 @@ function slotRuleError(name,slotId,pos){
   const d=sl[pos+'desc'];
   const g=groupOf(name);
   const otherPos=pos==='t1'?'t2':'t1';
-  const otherTeam=bracketState[slotId][otherPos];
+  const otherTeam=cb()[slotId][otherPos];
   let m;
 
   // Validar que el equipo cumpla su descripción individual
@@ -1390,7 +1413,7 @@ function slotRuleError(name,slotId,pos){
 function dupInPhase(name,phase,exclusions){
   return ALL_SLOTS.some(s=>PHASE_OF(s.id)===phase&&['t1','t2'].some(p=>{
     if(exclusions.some(x=>x.slot===s.id&&x.pos===p)) return false;
-    const t=bracketState[s.id][p];
+    const t=cb()[s.id][p];
     return t&&t.n===name;
   }));
 }
@@ -1410,26 +1433,24 @@ function handleDrop(toSlotId,toPos){
     if(dupInPhase(team.n,phase,excl)) err=`⚠ ${team.n} ya está en esta ronda`;
   }
   // si hay intercambio, el desplazado también debe ser válido en la casilla de origen
-  const displaced=bracketState[toSlotId][toPos];
+  const displaced=cb()[toSlotId][toPos];
   if(!err&&displaced&&fromSlotId){
     err=slotRuleError(displaced.n,fromSlotId,fromPos);
     if(err) err+=' — no se puede intercambiar';
   }
   if(err){rejectSlot(toSlotId,toPos,err);return;}
-  bracketState[toSlotId][toPos]=team;
-  if(fromSlotId&&bracketState[fromSlotId]!==undefined){
-    bracketState[fromSlotId][fromPos]=displaced||null;
+  cb()[toSlotId][toPos]=team;
+  if(fromSlotId&&cb()[fromSlotId]!==undefined){
+    cb()[fromSlotId][fromPos]=displaced||null;
   }
   lastPlaced={slot:toSlotId,pos:toPos};
-  saveBracket();
-  renderBracket();
-  renderPartidos();
+  afterBracketEdit();
   setTimeout(()=>{lastPlaced=null;},400);
 }
 
 function makeMatchCard(slot,extraClass){
   const{id,label,t1desc,t2desc}=slot;
-  const{t1,t2}=bracketState[id];
+  const{t1,t2}=cb()[id];
   const card=document.createElement('div');
   card.className='match-card '+(extraClass||'')+((t1||t2)?' defined':'');
   card.dataset.slotId=id;
@@ -1549,7 +1570,7 @@ function drawLines(){
     ['t1','t2'].forEach(pos=>{
       const m=sl[pos+'desc'].match(/^([12])° Grupo ([A-L])$/);
       if(!m) return;
-      const placed=bracketState[sl.id][pos];
+      const placed=cb()[sl.id][pos];
       const rowTeam=sortGroup(m[2])[+m[1]-1];
       const enRuta=pathTeam&&chain[0]===sl.id&&pathTeam.grupo===m[2]&&
         ((placed&&placed.n===pathTeam.name)||(!placed&&rowTeam&&rowTeam.n===pathTeam.name));
@@ -1570,7 +1591,7 @@ function drawLines(){
     if(!srcEl||!tgtEl) return;
     let color='#2E2E2E',w=2;
     if(chain.includes(srcId)&&chain.includes(nx.slot)){color='#FFD700';w=2.5;}
-    else if(bracketState[nx.slot][nx.pos]){color='rgba(0,193,101,.75)';}
+    else if(cb()[nx.slot][nx.pos]){color='rgba(0,193,101,.75)';}
     connect(srcEl,tgtEl,color,w);
   });
   canvas.insertBefore(svg,canvas.firstChild);
@@ -1603,8 +1624,24 @@ function makeCenterCol(){
   return col;
 }
 
+// aviso de modo simulación (proyección que no afecta a Grupos ni Partidos)
+function renderSimBanner(){
+  const el=document.getElementById('sim-banner');
+  if(!el) return;
+  const btn=document.getElementById('btn-reset-bracket');
+  if(inSim()){
+    el.style.display='';
+    el.innerHTML=`⚡ Estás viendo una <b>simulación</b> (proyección por ranking FIFA). No afecta a <b>Grupos</b> ni <b>Partidos</b>. <button class="btn-reset" onclick="exitSim()" style="margin-left:auto;">↩ Volver al bracket oficial</button>`;
+    if(btn) btn.textContent='↺ Salir de simulación';
+  }else{
+    el.style.display='none'; el.innerHTML='';
+    if(btn) btn.textContent='↺ Limpiar bracket';
+  }
+}
+
 // doble pirámide: las dos mitades del cuadro avanzan hacia la final al centro
 function renderBracket(){
+  renderSimBanner();
   const instr=document.getElementById('bracket-instr');
   if(instr) instr.innerHTML=isTouchMode()
     ? '👆 Toca una llave para elegir equipo (solo muestra los válidos). Toca un equipo para ver su ruta o quitarlo. O usa <b>&nbsp;⚡ Simular</b>&nbsp; para llenarlo automático.'
