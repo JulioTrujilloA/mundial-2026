@@ -145,7 +145,10 @@ nav button.active{color:var(--negro) !important;background:var(--verde) !importa
 .pr-num{font-size:.6rem;color:var(--texto-dim);}
 .pr-team{display:flex;align-items:center;gap:5px;font-weight:500;}
 .pr-team.right{flex-direction:row-reverse;}
-.pr-vs{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--texto);font-weight:700;text-align:center;display:flex;align-items:center;gap:4px;}
+.pr-vs{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--texto);font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;gap:4px;}
+.ko-cell{display:inline-flex;flex-direction:column;align-items:center;gap:1px;}
+.pr-score{display:inline-flex;align-items:center;gap:4px;}
+.pr-pen{font-family:'Inter',system-ui,sans-serif;font-size:.58rem;font-weight:600;color:var(--texto-dim);line-height:1;letter-spacing:.2px;}
 .pr-sede{font-size:.62rem;color:var(--texto-dim);text-align:right;}
 .score-input{background:transparent;border:1px solid var(--gris-borde);color:var(--texto);font-family:'Bebas Neue',sans-serif;font-size:1.4rem;font-weight:700;width:38px;height:34px;text-align:center;border-radius:4px;}
 .score-input:focus{outline:none;border-color:var(--verde);color:var(--verde);}
@@ -907,7 +910,7 @@ function renderPartidos(){
     row.title=sl.label;
     const dot=isLive?'<span class="live-dot"></span>':'';
     const scoreHtml=ks&&ks.s1!=null
-      ?`${dot}<input class="score-input" type="number" min="0" max="20" value="${ks.s1}" disabled><span>:</span><input class="score-input" type="number" min="0" max="20" value="${ks.s2}" disabled>`
+      ?`<span class="ko-cell"><span class="pr-score">${dot}<input class="score-input" type="number" min="0" max="20" value="${ks.s1}" disabled><span>:</span><input class="score-input" type="number" min="0" max="20" value="${ks.s2}" disabled></span>${penLabel(ks)}</span>`
       :`<input class="score-input" type="number" min="0" max="20" value="" placeholder="0" onchange="setKOScore('${sl.id}','s1',this.value)"><span>:</span><input class="score-input" type="number" min="0" max="20" value="" placeholder="0" onchange="setKOScore('${sl.id}','s2',this.value)">`;
     row.innerHTML=`
       <div><div class="pr-fecha">${fecha}</div>${hora?`<div class="pr-hora">${hora}</div>`:''}<div class="pr-num">${jn}</div></div>
@@ -934,7 +937,7 @@ function renderPartidos(){
       const hora=horaLocal(SLOT_UTC[sl.id]);
       const n1=st.t1?`${st.t1.f} ${st.t1.n}`:'— '+descLegible(sl.t1desc);
       const n2=st.t2?`${st.t2.n} ${st.t2.f}`:descLegible(sl.t2desc)+' —';
-      const center=ks&&ks.s1!=null?`${ks.s1} : ${ks.s2}`:'VS';
+      const center=ks&&ks.s1!=null?`<span class="ko-cell"><span class="pr-score">${ks.s1} : ${ks.s2}</span>${penLabel(ks)}</span>`:'VS';
       const row=document.createElement('div');
       row.className='partido-row';
       row.title=sl.label;
@@ -976,6 +979,11 @@ function setKOScore(id,side,val){
   koScores[id][side]=val===''?null:Math.max(0,parseInt(val)||0);
   saveBracket();
   renderPartidos();
+}
+// etiqueta del desempate por penales (solo cuando hubo tanda)
+function penLabel(ks){
+  if(!ks||ks.p1==null||ks.p2==null) return '';
+  return `<span class="pr-pen">Penales ${ks.p1}–${ks.p2}</span>`;
 }
 
 // ══════════════════════════════════════════════
@@ -1048,15 +1056,16 @@ async function actualizarESPN(){
       const slot=cands[0];
       bracketState[slot.id].t1={n:hN,f:flag(hN)};
       bracketState[slot.id].t2={n:aN,f:flag(aN)};
+      // ¿se decidió por penales? ESPN reporta shootoutScore cuando hubo tanda
+      const sp1=parseInt(home.shootoutScore),sp2=parseInt(away.shootoutScore);
+      const hadPens=hS===aS&&!isNaN(sp1)&&!isNaN(sp2)&&(sp1>0||sp2>0);
       koScores[slot.id]={s1:hS,s2:aS,final:state==='post'};
+      if(hadPens){koScores[slot.id].p1=sp1;koScores[slot.id].p2=sp2;}
       updated++;
       if(state==='post'&&NEXT[slot.id]){
-        // avanzar ganador (en empate ESPN reporta penales en shootoutScore)
+        // avanzar ganador (en empate, lo decide la tanda de penales)
         let winner=hS>aS?hN:aS>hS?aN:null;
-        if(winner===null){
-          const p1=parseInt(home.shootoutScore),p2=parseInt(away.shootoutScore);
-          if(!isNaN(p1)&&!isNaN(p2)) winner=p1>p2?hN:aN;
-        }
+        if(winner===null&&hadPens) winner=sp1>sp2?hN:aN;
         if(winner){
           const nx=NEXT[slot.id];
           bracketState[nx.slot][nx.pos]={n:winner,f:flag(winner)};
@@ -1294,7 +1303,8 @@ function makeTeamSlot(slotId,pos,team){
   if(lastPlaced&&lastPlaced.slot===slotId&&lastPlaced.pos===pos) div.classList.add('placed');
   if(team){
     const ks=cko()[slotId];
-    const sc=ks&&ks.s1!=null?`<span class="ts-score">${pos==='t1'?ks.s1:ks.s2}</span>`:'';
+    const pen=ks&&ks.p1!=null?` (${pos==='t1'?ks.p1:ks.p2})`:'';
+    const sc=ks&&ks.s1!=null?`<span class="ts-score">${pos==='t1'?ks.s1:ks.s2}${pen}</span>`:'';
     div.draggable=!touch;
     div.innerHTML=`<span class="ts-flag">${team.f}</span><span class="ts-name">${team.n}</span>${sc}<span class="ts-remove" title="Quitar">✕</span>`;
     div.querySelector('.ts-remove').addEventListener('click',e=>{
